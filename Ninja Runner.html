@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Ninja Runner</title>
+</head>
+<body>
+<script>
+
+// constants
+var canvas_width = 800;
+var canvas_height = 600;
+var leaderboard_width = 564;
+var leaderboard_height = 535;
+var ninja_width = 181;
+var ninja_height = 229;
+var ground_y = 540;
+var ninjay_acceleration = 5;
+var arrowup_keycode = 38;
+var ninja_jump_speed = 50;
+var background_width = 1000;
+var ninja_nr_animated_frames = 7;
+var ninja_animation_speed = 3;
+var robot_width = 141;
+var robot_height = 139;
+var robot_nr_animation_frames = 9;
+var robot_animation_speed = 5;
+var robot_x_speed = 4;
+var min_distance_between_robots = 400;
+var max_distance_between_robots = 1200;
+var max_active_robots = 3;
+var play_game_mode = 0;
+var game_over_game_mode = 1;
+var gameOver = 0;
+var ninjaDistance = 0;
+
+// setup
+
+/* creating images */
+var ninjaImage = new Image();
+ninjaImage.src = "animatedNinja.png";
+var backgroundImage = new Image();
+backgroundImage.src = "background.png";
+var bush1Image = new Image();
+bush1Image.src = "bush1.png";
+var bush2Image = new Image();
+bush2Image.src = "bush2.png";
+var robotImage = new Image();
+robotImage.src = "animatedRobot.png";
+
+/* creating canvas */
+var canvas = document.createElement("canvas");
+var c = canvas.getContext("2d");
+canvas.width = canvas_width;
+canvas.height = canvas_height;
+document.body.appendChild(canvas);
+var ninjaSpriteSheet = {
+nr_frames_per_row: 5,
+sprite_width: ninja_width,
+sprite_height: ninja_height,
+image: ninjaImage
+};
+var robotSpriteSheet = {
+nr_frames_per_row: 3,
+sprite_width: robot_width,
+sprite_height: robot_height,
+image: robotImage
+};
+var robot_data = [];
+
+var game_mode = play_game_mode;
+
+var ninjaCollisionRectangle = {
+xOffset: 60,
+yOffset: 20,
+width: 50,
+height: 200
+};
+var robotCollisionRectangle = {
+xOffset: 50,
+yOffset: 20,
+width: 50,
+height: 100
+};
+
+/* ninja variables */
+var ninjax = canvas_width / 2;
+var ninjay = ground_y - ninja_height;
+var ninjay_speed = 5;
+var ninjax_Speed = 10;
+var ninjaIsInTheAir = false;
+
+/* bush */
+var bushData = generateBushes();
+
+/* key related variables */
+var arrowupKeyIsPressed = false;
+
+/* frame tracker */
+var ninjaFrameNr = 0;
+
+/* frame counter */
+var gameFrameCounter = 0;
+
+/* camera */
+var camerax = 0;
+var cameray = 0;
+
+/* events */
+window.addEventListener("keydown", onKeyDown);
+window.addEventListener("keyup", onKeyUp);
+
+window.addEventListener("load", start);
+
+function start(){
+window.requestAnimationFrame(mainLoop);
+}
+
+function generateBushes(){
+var generateBushData = [];
+var bushx = 0;
+while(bushx < (2* canvas_width)){
+if(Math.random() >= 0.5){
+bushImage = bush1Image;
+}
+else{
+bushImage = bush2Image
+}
+generateBushData.push({
+x : bushx,
+y : 80 + Math.random() *20,
+image : bushImage
+});
+bushx += 150 + Math.random() * 20;
+}
+return generateBushData;
+}
+
+//main loop
+function mainLoop() {
+if(gameOver != 1){
+
+update();
+drawing();
+window.requestAnimationFrame(mainLoop);}
+
+else{
+
+}
+}
+
+//player input
+function onKeyDown(event){
+if (event.keyCode === arrowup_keycode) {
+arrowupKeyIsPressed = true;
+}
+}
+
+function onKeyUp(event){
+if (event.keyCode === arrowup_keycode){
+arrowupKeyIsPressed = false;
+}
+}
+
+// updating
+function update() {
+
+gameFrameCounter = gameFrameCounter + 1;
+
+/* movement */
+ninjax = ninjax + ninjax_Speed;
+
+ninjaDistance = ninjax / 100;
+if (ninjaDistance >= 50 && ninjaDistance <= 99){
+robot_x_speed = 6;
+}
+
+else if (ninjaDistance >= 100 && ninjaDistance <= 149){
+robot_x_speed = 8;
+}
+
+else if (ninjaDistance >= 150){
+robot_x_speed = 10;
+}
+
+/* jump */
+if(arrowupKeyIsPressed && !ninjaIsInTheAir) {
+ninjay_speed = -ninja_jump_speed;
+ninjaIsInTheAir = true;
+}
+
+/* update ninja*/
+ninjay = ninjay + ninjay_speed;
+ninjay_speed = ninjay_speed + ninjay_acceleration;
+
+/* keeping ninja on the ground */
+if (ninjay > (ground_y - ninja_height)){
+ninjay = ground_y - ninja_height;
+ninjay_speed = 0;
+ninjaIsInTheAir = false;
+}
+
+/* update anim */
+if(!ninjaIsInTheAir){
+if((gameFrameCounter % ninja_animation_speed) === 0){
+ninjaFrameNr = ninjaFrameNr + 1;
+if(ninjaFrameNr >= ninja_nr_animated_frames){
+ninjaFrameNr = 0;
+}
+}
+}
+
+/* update camera */
+camerax = ninjax - 150;
+
+/* update bush */
+for(var i = 0; i < bushData.length; i++){
+if((bushData[i].x - camerax) < -canvas_width){
+bushData[i].x += (2*canvas_width) + 150;
+}
+}
+
+/* update robots */
+updateRobots();
+
+}
+
+/* update robots */
+function updateRobots(){
+
+for (var i = 0; i < robot_data.length; i++){
+if (doesninjaOverlapRobot(
+ninjax + ninjaCollisionRectangle.xOffset,
+ninjay + ninjaCollisionRectangle.yOffset,
+ninjaCollisionRectangle.width,
+ninjaCollisionRectangle.height,
+robot_data[i].x + robotCollisionRectangle.xOffset,
+robot_data[i].y + robotCollisionRectangle.yOffset,
+robotCollisionRectangle.width,
+robotCollisionRectangle.height)){
+gameOver = 1;
+console.log("OUCH");
+}
+robot_data[i].x -= robot_x_speed;
+if ((gameFrameCounter % robot_animation_speed) === 0){
+robot_data[i].frame_nr = robot_data[i].frame_nr + 1;
+if (robot_data[i].frame_nr >= robot_nr_animation_frames){
+robot_data[i].frame_nr = 0;
+}
+}
+}
+
+/* remove */
+var robot_index = 0;
+while (robot_index < robot_data.length){
+if (robot_data[robot_index].x < camerax - robot_width){
+robot_data.splice(robot_index, 1);
+} else {
+robot_index += 1;
+}
+}
+
+if (robot_data.length < max_active_robots){
+var last_robotx = canvas_width;
+if (robot_data.length > 0){
+last_robotx = robot_data[robot_data.length - 1].x;
+}
+var new_robotx = last_robotx + min_distance_between_robots + Math.random() * (max_distance_between_robots - min_distance_between_robots);
+robot_data.push({
+x: new_robotx,
+y: ground_y - robot_height,
+frame_nr: 0 });
+}
+
+}
+
+/* collision detection */
+function doesninjaOverlapRobotAlongOneAxis(ninjaNearX, ninjaFarX, robotNearX, robotFarX){
+var ninjaOverlapsNearRobotEdge = (ninjaFarX >= robotNearX) && (ninjaFarX <= robotFarX);
+var ninjaOverlapsFarRobotEdge = (ninjaNearX >= robotNearX) && (ninjaNearX <= robotFarX);
+var ninjaOverlapsEntireRobot = (ninjaNearX <= robotNearX) && (ninjaFarX >= robotFarX);
+return ninjaOverlapsNearRobotEdge || ninjaOverlapsFarRobotEdge || ninjaOverlapsEntireRobot;
+}
+
+function doesninjaOverlapRobot(ninjax, ninjay, ninja_width, ninja_height, robotX, robotY, robot_width, robot_height){
+var ninjaOverlapsRobotOnXAxis = doesninjaOverlapRobotAlongOneAxis(
+ninjax, ninjax + ninja_width, robotX, robotX + robot_width
+);
+var ninjaOverlapsRobotOnYAxis = doesninjaOverlapRobotAlongOneAxis(
+ninjay, ninjay + ninja_height, robotY, robotY + robot_height
+);
+return ninjaOverlapsRobotOnXAxis && ninjaOverlapsRobotOnYAxis;
+}
+
+// drawing
+function drawing() {
+
+/* draw background */
+var backgroundx = - (camerax % background_width);
+c.drawImage (backgroundImage, backgroundx, -210);
+c.drawImage (backgroundImage, backgroundx + background_width, -210);
+
+/* draw ground */
+c.fillStyle = "ForestGreen";
+c.fillRect(0, ground_y - 40, canvas_width , canvas_height - ground_y);
+
+/* draw bush */
+for(var i = 0; i <bushData.length; i++){
+c.drawImage (bushData[i].image, bushData[i].x - camerax, ground_y - bushData[i].y - cameray);
+}
+
+/* draw robots */
+for (var i = 0; i < robot_data.length; i++){
+drawAnimatedSprite(robot_data[i].x - camerax, robot_data[i].y - cameray, robot_data[i].frame_nr, robotSpriteSheet);
+}
+
+/* draw ninja */
+drawAnimatedSprite(ninjax - camerax, ninjay - cameray, 
+ninjaFrameNr, ninjaSpriteSheet);
+
+/* draw distance */
+c.fillStyle = "black";
+c.font = "48px sans-serif";
+c.fillText(ninjaDistance.toFixed(0) + "m", 20, 40);
+
+/* draw game over */
+if (gameOver == 1){
+c.fillStyle = "black";
+c.font = "96px sans-serif";
+c.fillText("GAME OVER", 120, 300);
+}
+
+/*Draw sprite*/
+function drawAnimatedSprite(screenX, screenY, frameNr, spriteSheet) {
+var spriteSheetRow = Math.floor(frameNr/spriteSheet.nr_frames_per_row);
+var spriteSheetColumn = frameNr % spriteSheet.nr_frames_per_row;
+var spriteSheetX = spriteSheetColumn * spriteSheet.sprite_width;
+var spriteSheetY = spriteSheetRow * spriteSheet.sprite_height;
+c.drawImage(
+spriteSheet.image,
+spriteSheetX, spriteSheetY,
+spriteSheet.sprite_width, spriteSheet.sprite_height, screenX, screenY,
+spriteSheet.sprite_width, spriteSheet.sprite_height
+);
+}
+
+}
+
+
+</script>
+</body>
+</html>
